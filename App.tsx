@@ -17,12 +17,28 @@ const instructions = Platform.select({
     '摇晃您的手机或是按下 菜单键 来开启开发者菜单'
 })
 
-type Props = {}
-export default class App extends Component<Props> {
+type titleBar = {
+  text: string
+  leftButton: Component | null | undefined
+  rightButton: Component | null | undefined
+}
+
+class TitleBar extends Component<titleBar> {
+  render() {
+    return (
+      <View style={styles.titleBar}>
+        <Text style={styles.titleBarText}>{this.props.text}</Text>
+      </View>
+    )
+  }
+}
+
+type mainWindow = {}
+export default class App extends Component<mainWindow> {
   render() {
     return (
       <View style={styles.container}>
-        <Text style={styles.welcome}>欢迎来到 React Native ！</Text>
+        <TitleBar text="柄家便签" leftButton={null} rightButton={null} />
         <View style={styles.instruction}>
           <Text style={styles.instructions}>要开始，请编辑 App.js</Text>
           <Text style={styles.instructions}>{instructions}</Text>
@@ -38,6 +54,17 @@ const styles = StyleSheet.create({
     // justifyContent: 'center',
     // alignItems: 'center',
     backgroundColor: '#F5FCFF'
+  },
+  titleBar: {
+    flex: 0,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'steelblue'
+  },
+  titleBarText: {
+    fontSize: 16,
+    color: '#FFFFFF'
   },
   welcome: {
     flex: 0,
