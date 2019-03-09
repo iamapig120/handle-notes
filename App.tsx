@@ -8,7 +8,7 @@
  */
 
 import React, { Component } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
+import { Platform, StyleSheet, Text, View, AsyncStorage } from 'react-native'
 
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
@@ -24,6 +24,9 @@ type titleBar = {
 }
 
 class TitleBar extends Component<titleBar> {
+  constructor(props) {
+    super(props)
+  }
   render() {
     return (
       <View style={styles.titleBar}>
@@ -33,14 +36,43 @@ class TitleBar extends Component<titleBar> {
   }
 }
 
+interface MainState {
+  timerText: string
+}
 type mainWindow = {}
-export default class App extends Component<mainWindow> {
+export default class App extends Component<mainWindow, MainState> {
+  constructor(props) {
+    super(props)
+    AsyncStorage.getItem('AppTimeCounter')
+      .then(
+        result => {
+          return Promise.resolve(parseInt(result, 10))
+        },
+        err => {
+          return Promise.resolve(0)
+        }
+      )
+      .then(startNumber => {
+        let timer = Number.isInteger(startNumber) ? startNumber : 0
+        setInterval(() => {
+          timer++
+          AsyncStorage.setItem('AppTimeCounter', timer.toString(10))
+          this.setState(previousState => {
+            return { timerText: timer.toString(10) }
+          })
+        }, 1000)
+      })
+  }
+  state = {
+    timerText: 'Loading...'
+  }
   render() {
     return (
       <View style={styles.container}>
         <TitleBar text="柄家便签" leftButton={null} rightButton={null} />
         <View style={styles.instruction}>
           <Text style={styles.instructions}>要开始，请编辑 App.js</Text>
+          <Text style={styles.instructions}>{this.state.timerText}</Text>
           <Text style={styles.instructions}>{instructions}</Text>
         </View>
       </View>
