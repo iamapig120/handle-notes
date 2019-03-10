@@ -9,7 +9,9 @@
   "dependencies": {
     "@types/react-native": "^0.57.38",
     "react": "16.6.3",
-    "react-native": "0.58.6"
+    "react-native": "0.58.6",
+    "react-native-gesture-handler": "^1.1.0",
+    "react-navigation": "^3.3.2"
   },
   "devDependencies": {
     "autoresponsive-react-native": "^1.0.9",
