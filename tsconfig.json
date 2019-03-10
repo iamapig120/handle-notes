@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "resolveJsonModule": true,
-    "jsx": "react-native"
+    "jsx": "react-native",
+    "allowSyntheticDefaultImports":true
   }
 }
