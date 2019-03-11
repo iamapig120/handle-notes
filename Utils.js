@@ -1,4 +1,4 @@
-const timestampToString = (timestamp) => {
+const timestampToString = timestamp => {
   const dateIns = new Date(timestamp) //获取一个时间对象
 
   const fullYear = dateIns.getFullYear() // 获取完整的年份(4位,1970)
@@ -68,7 +68,9 @@ const timestampToString = (timestamp) => {
       hoursToShow = 12
     }
   }
-  str += `${hoursToShow}:${mins}`
+  str += `${hoursToShow.toString(10).padStart(2, '0')}:${mins
+    .toString(10)
+    .padStart(2, '0')}`
 
   return str
 }

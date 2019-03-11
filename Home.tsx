@@ -18,7 +18,10 @@ import {
   ScrollView,
   Dimensions,
   StatusBar,
-  TouchableOpacity
+  LayoutChangeEvent,
+  TouchableNativeFeedback,
+  TouchableOpacity,
+  DeviceEventEmitter
 } from 'react-native'
 import AutoResponsive from 'autoresponsive-react-native'
 
@@ -90,6 +93,18 @@ const NOTES_DATA: { [x: string]: note } = {
   }
 }
 
+let NOTES_ACTIVE_DATA = {}
+const SAVE_NOTES = () => {
+  AsyncStorage.setItem('notesSave', JSON.stringify(NOTES_ACTIVE_DATA))
+}
+const ADD_NOTE = (key: string | number, note: { [x: string]: any }) => {
+  NOTES_ACTIVE_DATA[key] = note
+}
+const REMOVE_NOTE = (key: string | number) => {
+  delete NOTES_ACTIVE_DATA[key]
+  SAVE_NOTES()
+}
+
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
   android:
@@ -98,7 +113,7 @@ const instructions = Platform.select({
 })
 
 type noteInfo = {
-  notekey: string
+  note: { [x: string]: any }
   rendered: (event: LayoutChangeEvent) => any
 }
 
@@ -111,15 +126,16 @@ interface note {
 class Note extends Component<noteInfo, note> {
   constructor(props) {
     super(props)
-    const key = this.props.notekey
-    const info = NOTES_DATA[key]
-    this.state = { ...this.state, ...info }
-  }
-  state = {
-    skin: 'yellow',
-    text: '',
-    timestamp: 0,
-    height: 0
+    const info = this.props.note
+    this.state = {
+      ...{
+        skin: 'yellow',
+        text: '',
+        timestamp: 0,
+        height: 0
+      },
+      ...info
+    }
   }
   render() {
     return (
@@ -174,56 +190,169 @@ const stylesNote = {
       fontWeight: '300',
       fontSize: 10
     }
+  }),
+  green: StyleSheet.create({
+    container: {
+      padding: 16,
+      backgroundColor: '#F0FFF0',
+      borderWidth: 0.5,
+      borderColor: '#AAEEAA',
+      borderRadius: 8
+    },
+    note: {
+      color: '#88AA88',
+      fontWeight: '300'
+    },
+    timestamp: {
+      color: '#99BB99',
+      fontWeight: '300',
+      fontSize: 10
+    }
+  }),
+  red: StyleSheet.create({
+    container: {
+      padding: 16,
+      backgroundColor: '#FFF0F0',
+      borderWidth: 0.5,
+      borderColor: '#EEAAAA',
+      borderRadius: 8
+    },
+    note: {
+      color: '#AA8888',
+      fontWeight: '300'
+    },
+    timestamp: {
+      color: '#BB9999',
+      fontWeight: '300',
+      fontSize: 10
+    }
   })
-}
-
-type titleBar = {
-  text: string
-  leftButton: Component | null | undefined
-  rightButton: Component | null | undefined
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 
 interface MainState {
   timerText: string
-  notes: { [x: string]: any }
+  notesStyle: { [x: string]: any }
+  notesInfo: { [x: string]: any }
+  notesView: { [x: string]: Note }
 }
 type mainWindow = {}
+
 export default class Home extends Component<mainWindow, MainState> {
   constructor(props) {
     super(props)
-    AsyncStorage.getItem('AppTimeCounter')
+    this.state = {
+      timerText: 'Loading...',
+      notesStyle: {},
+      notesInfo: {},
+      notesView: {}
+    }
+    AsyncStorage.getItem('notesSave')
       .then(
         result => {
-          return Promise.resolve(parseInt(result, 10))
+          if (result && result.length > 0) {
+            return Promise.resolve(JSON.parse(result))
+          }
+          return Promise.resolve({})
         },
         err => {
-          return Promise.resolve(0)
+          return Promise.resolve({})
         }
       )
-      .then(startNumber => {
-        let timer = Number.isInteger(startNumber) ? startNumber : 0
-        // this.setState(previousState => {
-        //   return { timerText: timer.toString(10) }
-        // })
-        setInterval(() => {
-          timer++
-          AsyncStorage.setItem('AppTimeCounter', timer.toString(10))
-          // this.setState(previousState => {
-          //   return { timerText: timer.toString(10) }
-          // })
-        }, 1000)
+      .then(notesInfo => {
+        NOTES_ACTIVE_DATA = notesInfo
+        this.setState(() => {
+          return { notesInfo: notesInfo }
+          // return { notesInfo: NOTES_DATA }
+        })
       })
+    this.props.navigation.setParams({
+      realThis: this
+    })
   }
 
-  static navigationOptions = {
-    title: '柄家便签'
+  componentDidMount() {
+    this.subscription = DeviceEventEmitter.addListener('Reload', () =>
+      this.forceUpdate()
+    )
+  }
+  componentWillUnmount() {
+    this.subscription.remove()
   }
 
-  state = {
-    timerText: 'Loading...',
-    notes: {}
+  static navigationOptions = ({ navigation }) => {
+    return {
+      title: '柄家便签',
+      headerRight: (
+        <TouchableNativeFeedback
+          onPress={() => {
+            const noteKey = new Date().getTime()
+            const newNote = {
+              skin: 'white',
+              text: '',
+              timestamp: noteKey
+            }
+            NOTES_ACTIVE_DATA[noteKey] = newNote
+            navigation.navigate('Note', {
+              note: newNote,
+              del: () => {
+                REMOVE_NOTE(noteKey)
+                SAVE_NOTES()
+              },
+              save: () => {
+                SAVE_NOTES()
+                navigation
+                  .getParam('realThis')
+                  .state.notesView[noteKey].setState(() => {
+                    setTimeout(() => {
+                      DeviceEventEmitter.emit('Reload')
+                    }, 100)
+                    return {
+                      ...navigation.getParam('realThis').state.notesInfo[
+                        noteKey
+                      ]
+                    }
+                  })
+              },
+              skin: () => SAVE_NOTES() //this.forceUpdate()
+            })
+            SAVE_NOTES()
+            navigation.getParam('realThis').forceUpdate()
+          }}
+          key="2"
+        >
+          <View
+            style={{
+              width: 60,
+              height: 30,
+              marginRight: 8,
+              borderColor: '#999',
+              borderRadius: 4,
+              borderWidth: 1
+            }}
+          >
+            <View
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Text
+                style={{
+                  textAlign: 'center',
+                  justifyContent: 'center',
+                  color: '#000'
+                }}
+              >
+                新建
+              </Text>
+            </View>
+          </View>
+        </TouchableNativeFeedback>
+      )
+    }
   }
 
   getNoteStyle() {
@@ -238,45 +367,71 @@ export default class Home extends Component<mainWindow, MainState> {
   }
 
   renderNotes() {
-    return Object.keys(NOTES_DATA).map(notekey => {
-      if (!this.state.notes[notekey]) {
-        setTimeout(() => {
-          this.setState(prevState => {
-            prevState.notes[notekey] = this.getNoteStyle()
-            return prevState
-          })
-        }, 0)
-      }
-      return (
-        <View
-          key={notekey}
-          style={
-            this.state.notes[notekey]
-              ? this.state.notes[notekey]
-              : this.getNoteStyle()
-          }
-        >
-          <TouchableOpacity
-            onPress={() => this.props.navigation.navigate('Note')}
+    return Object.keys(this.state.notesInfo)
+      .sort((a, b) => {
+        return parseInt(b, 10) - parseInt(a, 10)
+      })
+      .map(notekey => {
+        if (!this.state.notesStyle[notekey]) {
+          setTimeout(() => {
+            this.setState(prevState => {
+              prevState.notesStyle[notekey] = this.getNoteStyle()
+              return prevState
+            })
+          }, 0)
+        }
+        return (
+          <View
+            key={this.state.notesInfo[notekey]}
+            style={
+              this.state.notesStyle[notekey]
+                ? this.state.notesStyle[notekey]
+                : this.getNoteStyle()
+            }
           >
-            <Note
-              notekey={notekey}
-              rendered={event => {
-                setTimeout(
-                  () =>
-                    this.setState(prevState => {
-                      prevState.notes[notekey] = this.getNoteStyle()
-                      prevState.notes[notekey].height = event.layout.height
-                      return prevState
-                    }),
-                  0
-                )
-              }}
-            />
-          </TouchableOpacity>
-        </View>
-      )
-    }, this)
+            <TouchableOpacity
+              onPress={() =>
+                this.props.navigation.navigate('Note', {
+                  note: this.state.notesInfo[notekey],
+                  del: () => {
+                    REMOVE_NOTE(notekey)
+                    SAVE_NOTES()
+                  },
+                  save: () => {
+                    SAVE_NOTES()
+                    this.state.notesView[notekey].setState(() => {
+                      setTimeout(() => {
+                        DeviceEventEmitter.emit('Reload')
+                      }, 100)
+                      return { ...this.state.notesInfo[notekey] }
+                    })
+                  },
+                  skin: () => SAVE_NOTES() //this.forceUpdate()
+                })
+              }
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+            >
+              <Note
+                note={this.state.notesInfo[notekey]}
+                rendered={event => {
+                  setTimeout(
+                    () =>
+                      this.setState(prevState => {
+                        prevState.notesStyle[notekey] = this.getNoteStyle()
+                        prevState.notesStyle[notekey].height =
+                          event.layout.height
+                        return prevState
+                      }),
+                    0
+                  )
+                }}
+                ref={noteView => (this.state.notesView[notekey] = noteView)}
+              />
+            </TouchableOpacity>
+          </View>
+        )
+      }, this)
   }
 
   render() {
@@ -288,11 +443,6 @@ export default class Home extends Component<mainWindow, MainState> {
             <AutoResponsive itemMargin={8}>{this.renderNotes()}</AutoResponsive>
           </ScrollView>
         </View>
-        {/* <View style={styles.instruction}>
-          <Text style={styles.instructions}>要开始，请编辑 App.js</Text>
-          <Text style={styles.instructions}>{this.state.timerText}</Text>
-          <Text style={styles.instructions}>{instructions}</Text>
-        </View> */}
       </View>
     )
   }
